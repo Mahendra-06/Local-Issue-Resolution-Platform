@@ -1,0 +1,28 @@
+# Root gitignore for CivicPulse
+
+# Environment Variables & Secrets
+.env
+.env.*
+*.env
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Uploads
+backend/uploads/
+uploads/
+
+# Build Outputs
+dist/
+dist-ssr/
+
+# Logs
+logs/
+*.log
+
+# OS & Editors
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
