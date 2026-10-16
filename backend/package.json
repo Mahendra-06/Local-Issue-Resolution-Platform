@@ -9,6 +9,7 @@
     "dev": "nodemon src/server.js",
     "seed": "node scripts/seed.js",
     "create-admin": "node scripts/create_admin.js",
+    "init-platform": "node scripts/init_taxonomy.js",
     "test": "node --test tests/**/*.test.js"
   },
   "keywords": [
