@@ -15,7 +15,9 @@ export class ApiError extends Error {
 const getBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_BASE_URL;
   if (envUrl) {
-    return envUrl.replace(/\/+$/, '');
+    const cleaned = envUrl.trim().replace(/\/+$/, '');
+    // Ensure the base URL always terminates with /api
+    return cleaned.endsWith('/api') ? cleaned : `${cleaned}/api`;
   }
   return 'http://localhost:5000/api';
 };

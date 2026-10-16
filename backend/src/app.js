@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { env } from './config/env.js';
 import apiRouter from './routes/index.js';
+import authRoutes from './routes/authRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { ApiResponse } from './utils/apiResponse.js';
 
@@ -65,6 +66,7 @@ app.use('/api/uploads', express.static(uploadsPath));
 // Mount API routes
 app.use('/api', apiRouter);
 app.use('/api/v1', apiRouter);
+app.use('/auth', authRoutes);
 
 // Root greeting & status
 app.get('/', (req, res) => {
