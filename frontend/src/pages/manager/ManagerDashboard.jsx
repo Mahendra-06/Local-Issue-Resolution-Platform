@@ -11,6 +11,7 @@ import { SkeletonLoader } from '../../components/common/SkeletonLoader';
 import { GradientButton } from '../../components/common/GradientButton';
 import { incidentsService } from '../../api/incidentsService';
 import { assignmentsService } from '../../api/assignmentsService';
+import { analyticsService } from '../../api/analyticsService';
 import {
   Briefcase,
   AlertCircle,
@@ -29,6 +30,7 @@ export const ManagerDashboard = () => {
 
   const [incidents, setIncidents] = useState([]);
   const [verificationQueue, setVerificationQueue] = useState([]);
+  const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -37,9 +39,10 @@ export const ManagerDashboard = () => {
       setLoading(true);
       setError(null);
       try {
-        const [incidentsRes, vQueueRes] = await Promise.allSettled([
+        const [incidentsRes, vQueueRes, metricsRes] = await Promise.allSettled([
           incidentsService.getIncidents({ limit: 15 }),
           assignmentsService.getVerificationQueue(),
+          analyticsService.getManagerMetrics(),
         ]);
 
         if (incidentsRes.status === 'fulfilled') {
@@ -51,6 +54,11 @@ export const ManagerDashboard = () => {
           const vData = vQueueRes.value;
           setVerificationQueue(Array.isArray(vData) ? vData : vData?.data || []);
         }
+
+        if (metricsRes.status === 'fulfilled') {
+          const mData = metricsRes.value;
+          setMetrics(mData?.data || mData || null);
+        }
       } catch (err) {
         setError(err);
       } finally {
@@ -61,16 +69,21 @@ export const ManagerDashboard = () => {
     fetchManagerData();
   }, []);
 
-  // Compute actual metrics from server-owned data
-  const totalActive = incidents.filter((i) => i.status !== 'resolved').length;
-  const unassignedCount = incidents.filter(
-    (i) => !i.assignedStaffId && !i.assignedTo && ['reported', 'under_review'].includes(i.status?.toLowerCase())
-  ).length;
-  const inProgressCount = incidents.filter((i) => i.status?.toLowerCase() === 'in_progress').length;
-  const pendingVerificationCount = verificationQueue.length || incidents.filter(
-    (i) => i.status?.toLowerCase() === 'pending_verification'
-  ).length;
-  const resolvedCount = incidents.filter((i) => i.status?.toLowerCase() === 'resolved').length;
+  // Compute authoritative metrics from backend database response
+  const totalActive = metrics?.active ?? incidents.filter((i) => i.status !== 'resolved').length;
+  const unassignedCount =
+    metrics?.unassigned ??
+    incidents.filter(
+      (i) => !i.assignedStaffId && !i.assignedTo && ['reported', 'under_review'].includes(i.status?.toLowerCase())
+    ).length;
+  const inProgressCount =
+    metrics?.inProgress ?? incidents.filter((i) => i.status?.toLowerCase() === 'in_progress').length;
+  const pendingVerificationCount =
+    metrics?.pendingVerification ??
+    (verificationQueue.length ||
+      incidents.filter((i) => i.status?.toLowerCase() === 'pending_verification').length);
+  const resolvedCount =
+    metrics?.resolved ?? incidents.filter((i) => i.status?.toLowerCase() === 'resolved').length;
   const overdueCount = incidents.filter((i) => {
     if (!i.dueDate) return false;
     return new Date(i.dueDate) < new Date() && i.status !== 'resolved';

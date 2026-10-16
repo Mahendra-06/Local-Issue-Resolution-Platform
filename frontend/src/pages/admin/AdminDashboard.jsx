@@ -62,7 +62,13 @@ export const AdminDashboard = () => {
           platformData.totalIncidents ??
           (incRes.status === 'fulfilled' ? incRes.value?.total || incRes.value?.length || 0 : 0);
 
-        const resolutionRate = platformData.resolutionRate ?? (totalIncidents > 0 ? '78%' : '—');
+        const resolutionRate =
+          platformData.resolutionRate ??
+          (totalIncidents > 0 && platformData.resolvedIncidents !== undefined
+            ? `${Math.round(((platformData.resolvedIncidents || 0) / totalIncidents) * 100)}%`
+            : totalIncidents === 0
+            ? '0%'
+            : '—');
 
         setMetrics({
           totalUsers,

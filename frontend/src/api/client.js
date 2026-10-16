@@ -33,7 +33,7 @@ const getAuthHeaders = () => {
   return headers;
 };
 
-async function handleResponse(response) {
+async function handleResponse(response, { endpoint = '', tokenSent = null } = {}) {
   const contentType = response.headers.get('content-type');
   let data = null;
 
@@ -57,9 +57,19 @@ async function handleResponse(response) {
       `HTTP error ${response.status}: ${response.statusText}`;
 
     // Handle 401 Unauthorized token expiry or invalid session
-    if (response.status === 401) {
-      // Dispatched event so auth context or UI can handle token invalidation if needed
-      window.dispatchEvent(new CustomEvent('civicpulse_unauthorized'));
+    // Never trigger session invalidation for authentication endpoints (e.g., failed credentials or public checks)
+    const isAuthRoute =
+      endpoint.includes('/auth/login') ||
+      endpoint.includes('/auth/register') ||
+      endpoint.includes('/auth/departments');
+
+    if (response.status === 401 && !isAuthRoute) {
+      // Dispatched event so auth context can handle token invalidation for active session
+      window.dispatchEvent(
+        new CustomEvent('civicpulse_unauthorized', {
+          detail: { endpoint, tokenSent },
+        })
+      );
     }
 
     throw new ApiError(errorMessage, response.status, data);
@@ -79,12 +89,13 @@ export const apiClient = {
       }
     });
 
+    const tokenSent = localStorage.getItem('civicpulse_token');
     try {
       const response = await fetch(url.toString(), {
         method: 'GET',
         headers: getAuthHeaders(),
       });
-      return await handleResponse(response);
+      return await handleResponse(response, { endpoint, tokenSent });
     } catch (err) {
       if (err instanceof ApiError) throw err;
       throw new ApiError(
@@ -96,6 +107,7 @@ export const apiClient = {
   },
 
   async post(endpoint, body = {}) {
+    const tokenSent = localStorage.getItem('civicpulse_token');
     try {
       const response = await fetch(`${this.baseURL}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`, {
         method: 'POST',
@@ -105,7 +117,7 @@ export const apiClient = {
         },
         body: JSON.stringify(body),
       });
-      return await handleResponse(response);
+      return await handleResponse(response, { endpoint, tokenSent });
     } catch (err) {
       if (err instanceof ApiError) throw err;
       throw new ApiError(
@@ -117,6 +129,7 @@ export const apiClient = {
   },
 
   async put(endpoint, body = {}) {
+    const tokenSent = localStorage.getItem('civicpulse_token');
     try {
       const response = await fetch(`${this.baseURL}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`, {
         method: 'PUT',
@@ -126,7 +139,7 @@ export const apiClient = {
         },
         body: JSON.stringify(body),
       });
-      return await handleResponse(response);
+      return await handleResponse(response, { endpoint, tokenSent });
     } catch (err) {
       if (err instanceof ApiError) throw err;
       throw new ApiError(
@@ -138,6 +151,7 @@ export const apiClient = {
   },
 
   async patch(endpoint, body = {}) {
+    const tokenSent = localStorage.getItem('civicpulse_token');
     try {
       const response = await fetch(`${this.baseURL}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`, {
         method: 'PATCH',
@@ -147,7 +161,7 @@ export const apiClient = {
         },
         body: JSON.stringify(body),
       });
-      return await handleResponse(response);
+      return await handleResponse(response, { endpoint, tokenSent });
     } catch (err) {
       if (err instanceof ApiError) throw err;
       throw new ApiError(
@@ -159,12 +173,13 @@ export const apiClient = {
   },
 
   async delete(endpoint) {
+    const tokenSent = localStorage.getItem('civicpulse_token');
     try {
       const response = await fetch(`${this.baseURL}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`, {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });
-      return await handleResponse(response);
+      return await handleResponse(response, { endpoint, tokenSent });
     } catch (err) {
       if (err instanceof ApiError) throw err;
       throw new ApiError(
@@ -176,6 +191,7 @@ export const apiClient = {
   },
 
   async upload(endpoint, formData) {
+    const tokenSent = localStorage.getItem('civicpulse_token');
     try {
       const authHeaders = getAuthHeaders();
       // Remove content-type so browser sets boundary for multipart/form-data
@@ -186,7 +202,7 @@ export const apiClient = {
         headers: authHeaders,
         body: formData,
       });
-      return await handleResponse(response);
+      return await handleResponse(response, { endpoint, tokenSent });
     } catch (err) {
       if (err instanceof ApiError) throw err;
       throw new ApiError(

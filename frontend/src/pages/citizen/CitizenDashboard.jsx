@@ -9,8 +9,8 @@ import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
 import { SkeletonLoader } from '../../components/common/SkeletonLoader';
 import { GradientButton } from '../../components/common/GradientButton';
-import { DEFAULT_CATEGORIES } from '../../constants/categories';
 import { reportsService } from '../../api/reportsService';
+import { categoriesService } from '../../api/categoriesService';
 import {
   PlusCircle,
   FileText,
@@ -27,6 +27,8 @@ export const CitizenDashboard = () => {
   const navigate = useNavigate();
 
   const [myReports, setMyReports] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -35,9 +37,23 @@ export const CitizenDashboard = () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await reportsService.getMyReports({ limit: 6 });
-        const rData = Array.isArray(response) ? response : response?.data || [];
-        setMyReports(rData);
+        const [reportsRes, catRes] = await Promise.allSettled([
+          reportsService.getMyReports({ limit: 50 }),
+          categoriesService.getCategories(),
+        ]);
+
+        if (reportsRes.status === 'fulfilled') {
+          const response = reportsRes.value;
+          const rData = Array.isArray(response) ? response : response?.data || [];
+          setMyReports(rData);
+          setTotalCount(response?.total ?? (Array.isArray(response) ? response.length : rData.length));
+        }
+
+        if (catRes.status === 'fulfilled') {
+          const cResponse = catRes.value;
+          const cData = Array.isArray(cResponse) ? cResponse : cResponse?.data || [];
+          setCategories(cData);
+        }
       } catch (err) {
         setError(err);
       } finally {
@@ -49,7 +65,7 @@ export const CitizenDashboard = () => {
   }, []);
 
   // Compute actual metrics from fetched server records
-  const totalReports = myReports.length;
+  const totalReports = totalCount;
   const inProgressReports = myReports.filter((r) =>
     ['assigned', 'in_progress', 'under_review'].includes(r.status?.toLowerCase())
   ).length;
@@ -126,31 +142,39 @@ export const CitizenDashboard = () => {
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {DEFAULT_CATEGORIES.map((cat) => (
-            <GlassCard
-              key={cat.id}
-              hoverEffect={true}
-              interactive={true}
-              onClick={() => navigate(`/citizen/report?category=${cat.id}`)}
-              className="p-4 flex flex-col justify-between"
-            >
-              <div>
-                <span className="text-xs font-bold text-purple-700 block mb-1">
-                  SLA: {cat.slaHours}h Target
-                </span>
-                <h4 className="font-bold text-sm text-[#252238] line-clamp-1">{cat.name}</h4>
-                <p className="text-[11px] text-[#6B687A] mt-1 line-clamp-2 leading-relaxed">
-                  {cat.description}
-                </p>
-              </div>
-              <div className="mt-3 pt-2 border-t border-[#E9E5F0] flex items-center justify-between text-[11px] text-gray-500">
-                <span className="truncate">{cat.department}</span>
-                <ArrowRight className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-              </div>
-            </GlassCard>
-          ))}
-        </div>
+        {categories.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {categories.map((cat) => (
+              <GlassCard
+                key={cat.id || cat.key || cat._id}
+                hoverEffect={true}
+                interactive={true}
+                onClick={() => navigate(`/citizen/report?category=${cat.id || cat.key || cat._id}`)}
+                className="p-4 flex flex-col justify-between"
+              >
+                <div>
+                  <span className="text-xs font-bold text-purple-700 block mb-1">
+                    SLA: {cat.slaHours || 24}h Target
+                  </span>
+                  <h4 className="font-bold text-sm text-[#252238] line-clamp-1">{cat.name}</h4>
+                  <p className="text-[11px] text-[#6B687A] mt-1 line-clamp-2 leading-relaxed">
+                    {cat.description || 'Municipal repair category'}
+                  </p>
+                </div>
+                <div className="mt-3 pt-2 border-t border-[#E9E5F0] flex items-center justify-between text-[11px] text-gray-500">
+                  <span className="truncate">{cat.department || 'Public Works'}</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                </div>
+              </GlassCard>
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            icon={Layers}
+            title="No Categories Available"
+            message="No issue categories have been registered in the system."
+          />
+        )}
       </div>
 
       {/* My Reports Overview */}

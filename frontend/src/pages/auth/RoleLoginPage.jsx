@@ -84,9 +84,16 @@ export const RoleLoginPage = ({ roleOverride }) => {
   const effectiveRole = (roleOverride || urlRole || 'citizen').toLowerCase();
   const currentConfig = ROLE_SETTINGS[effectiveRole] || ROLE_SETTINGS.citizen;
 
-  const { login, logout } = useAuth();
+  const { user, role, isAuthenticated, loading, login, logout } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
+
+  // If user is already authenticated, redirect them directly to their role home
+  React.useEffect(() => {
+    if (!loading && isAuthenticated && role && ROLE_CONFIG[role]?.homePath) {
+      navigate(ROLE_CONFIG[role].homePath, { replace: true });
+    }
+  }, [loading, isAuthenticated, role, navigate]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -153,7 +160,7 @@ export const RoleLoginPage = ({ roleOverride }) => {
         `Welcome back, ${verifiedUser?.name || verifiedUser?.email}. Signed into ${currentConfig.title}.`
       );
 
-      navigate(currentConfig.homePath);
+      navigate(currentConfig.homePath, { replace: true });
     } catch (err) {
       setAuthError(
         err.message || 'Authentication failed. Please verify your credentials or server connection.'

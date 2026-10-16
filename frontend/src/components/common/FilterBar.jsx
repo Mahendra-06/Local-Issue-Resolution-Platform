@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { SearchInput } from './SearchInput';
 import { Filter, RotateCcw } from 'lucide-react';
 import { INCIDENT_STATUSES, STATUS_CONFIG, INCIDENT_PRIORITIES, PRIORITY_CONFIG } from '../../constants/statuses';
-import { DEFAULT_CATEGORIES } from '../../constants/categories';
+import { categoriesService } from '../../api/categoriesService';
 
 export const FilterBar = ({
   search,
@@ -15,9 +15,30 @@ export const FilterBar = ({
   onPriorityChange = null,
   onReset = null,
   searchPlaceholder = 'Search records...',
-  categories = DEFAULT_CATEGORIES,
+  categories: initialCategories = null,
   className = '',
 }) => {
+  const [dbCategories, setDbCategories] = useState(initialCategories || []);
+
+  useEffect(() => {
+    if (initialCategories && initialCategories.length > 0) {
+      setDbCategories(initialCategories);
+      return;
+    }
+
+    if (onCategoryChange) {
+      categoriesService
+        .getCategories()
+        .then((res) => {
+          const list = Array.isArray(res) ? res : res?.data || [];
+          setDbCategories(list);
+        })
+        .catch(() => {
+          setDbCategories([]);
+        });
+    }
+  }, [initialCategories, onCategoryChange]);
+
   const hasActiveFilters = Boolean(search || status || category || priority);
 
   return (
@@ -65,11 +86,14 @@ export const FilterBar = ({
               className="appearance-none bg-white border border-[#E9E5F0] rounded-xl px-3 py-2 pr-8 text-xs font-medium text-[#252238] focus:outline-none focus:ring-2 focus:ring-purple-400/30 focus:border-purple-300 transition-all cursor-pointer shadow-sm"
             >
               <option value="">All Categories</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
+              {dbCategories.map((cat) => {
+                const catId = cat.id || cat.key || cat._id;
+                return (
+                  <option key={catId} value={catId}>
+                    {cat.name}
+                  </option>
+                );
+              })}
             </select>
             <Filter className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
           </div>

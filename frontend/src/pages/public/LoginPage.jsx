@@ -22,9 +22,7 @@ import {
 const ROLE_AUTH_METADATA = {
   [USER_ROLES.CITIZEN]: {
     name: 'Citizen',
-    email: 'citizen@civicpulse.gov',
-    password: 'Citizen123!',
-    placeholder: 'citizen@civicpulse.gov',
+    placeholder: 'citizen@example.com',
     promptText: 'Are you a citizen without an account?',
     actionText: 'Register as a Citizen',
     linkPath: '/auth/citizen/register',
@@ -34,9 +32,7 @@ const ROLE_AUTH_METADATA = {
   },
   [USER_ROLES.STAFF]: {
     name: 'Department Staff',
-    email: 'staff@civicpulse.gov',
-    password: 'Staff123!',
-    placeholder: 'staff@civicpulse.gov',
+    placeholder: 'staff@example.com',
     promptText: 'New staff member requiring assignment access?',
     actionText: 'Complete Staff Onboarding',
     linkPath: '/auth/staff/register',
@@ -46,9 +42,7 @@ const ROLE_AUTH_METADATA = {
   },
   [USER_ROLES.MANAGER]: {
     name: 'Department Manager',
-    email: 'manager@civicpulse.gov',
-    password: 'Manager123!',
-    placeholder: 'manager@civicpulse.gov',
+    placeholder: 'manager@example.com',
     promptText: 'New department supervisor requiring management access?',
     actionText: 'Complete Manager Onboarding',
     linkPath: '/auth/manager/register',
@@ -58,9 +52,7 @@ const ROLE_AUTH_METADATA = {
   },
   [USER_ROLES.ADMIN]: {
     name: 'Administrator',
-    email: 'admin@civicpulse.gov',
-    password: 'Admin123!',
-    placeholder: 'admin@civicpulse.gov',
+    placeholder: 'admin@example.com',
     promptText: 'Need administrative account provisioning?',
     actionText: 'Administrator Provisioning Notice',
     linkPath: '/auth/admin/register',
@@ -71,14 +63,21 @@ const ROLE_AUTH_METADATA = {
 };
 
 export const LoginPage = () => {
-  const { login } = useAuth();
+  const { user, role, isAuthenticated, loading, login } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
 
+  // If user is already authenticated, redirect them directly to their role home
+  React.useEffect(() => {
+    if (!loading && isAuthenticated && role && ROLE_CONFIG[role]?.homePath) {
+      navigate(ROLE_CONFIG[role].homePath, { replace: true });
+    }
+  }, [loading, isAuthenticated, role, navigate]);
+
   // Role context selector
   const [selectedRoleContext, setSelectedRoleContext] = useState(USER_ROLES.CITIZEN);
-  const [email, setEmail] = useState(ROLE_AUTH_METADATA[USER_ROLES.CITIZEN].email);
-  const [password, setPassword] = useState(ROLE_AUTH_METADATA[USER_ROLES.CITIZEN].password);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -90,11 +89,6 @@ export const LoginPage = () => {
     setSelectedRoleContext(roleId);
     setAuthError(null);
     setErrors({});
-    const meta = ROLE_AUTH_METADATA[roleId];
-    if (meta) {
-      setEmail(meta.email);
-      setPassword(meta.password);
-    }
   };
 
   const rolesList = [
@@ -166,14 +160,14 @@ export const LoginPage = () => {
       });
 
       const actualRole = verifiedUser?.role?.toLowerCase() || selectedRoleContext;
-      const targetHome = ROLE_CONFIG[actualRole]?.homePath || '/login';
+      const targetHome = ROLE_CONFIG[actualRole]?.homePath || '/';
 
       toast.success(
         'Welcome Back',
         `Authenticated as ${verifiedUser?.name || verifiedUser?.email} (${actualRole})`
       );
 
-      navigate(targetHome);
+      navigate(targetHome, { replace: true });
     } catch (err) {
       setAuthError(
         err.message || 'Authentication failed. Please verify your credentials or server connection.'

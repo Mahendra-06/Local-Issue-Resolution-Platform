@@ -5,7 +5,6 @@ import { GradientButton } from '../../components/common/GradientButton';
 import { EmptyState } from '../../components/common/EmptyState';
 import { ErrorState } from '../../components/common/ErrorState';
 import { SkeletonLoader } from '../../components/common/SkeletonLoader';
-import { DEFAULT_CATEGORIES } from '../../constants/categories';
 import { categoriesService } from '../../api/categoriesService';
 import { useToast } from '../../context/ToastContext';
 import { Layers, Plus, Clock, Building2, CheckCircle2 } from 'lucide-react';
@@ -33,11 +32,10 @@ export const AdminCategoriesPage = () => {
     try {
       const response = await categoriesService.getCategories();
       const list = Array.isArray(response) ? response : response?.data || [];
-      // If server returned list, use it; otherwise fallback to default configured taxonomy
-      setCategories(list.length > 0 ? list : DEFAULT_CATEGORIES);
-    } catch {
-      // If backend categories endpoint is not initialized yet, display the default municipal categories
-      setCategories(DEFAULT_CATEGORIES);
+      setCategories(list);
+    } catch (err) {
+      setError(err);
+      setCategories([]);
     } finally {
       setLoading(false);
     }
@@ -96,12 +94,29 @@ export const AdminCategoriesPage = () => {
         }
       />
 
-      {loading ? (
-        <SkeletonLoader count={4} type="card" />
-      ) : (
+      {error && (
+        <ErrorState
+          title="Could Not Load Categories"
+          message="Failed to retrieve category definitions from the database."
+          error={error}
+          role="admin"
+        />
+      )}
+
+      {loading && !error && <SkeletonLoader count={4} type="card" />}
+
+      {!loading && !error && categories.length === 0 && (
+        <EmptyState
+          icon={Layers}
+          title="No Categories Configured"
+          message="No issue categories have been defined in the database yet. Click New Category above to add one."
+        />
+      )}
+
+      {!loading && !error && categories.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {categories.map((cat) => (
-            <GlassCard key={cat.id} tint="admin" className="p-6 flex flex-col justify-between">
+            <GlassCard key={cat.id || cat._id} tint="admin" className="p-6 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <span className="font-bold text-xs text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200 flex items-center gap-1">

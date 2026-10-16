@@ -1,25 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../common/GlassCard';
 import { GradientButton } from '../common/GradientButton';
 import { PhotoUploader } from './PhotoUploader';
 import { LocationPicker } from './LocationPicker';
-import { DEFAULT_CATEGORIES } from '../../constants/categories';
+import { categoriesService } from '../../api/categoriesService';
 import { reportsService } from '../../api/reportsService';
 import { useToast } from '../../context/ToastContext';
 import { Send, AlertCircle, CheckCircle } from 'lucide-react';
 
 export const ReportForm = ({ onSuccess = null, className = '' }) => {
   const toast = useToast();
+  const [categories, setCategories] = useState([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    categoryId: DEFAULT_CATEGORIES[0].id,
+    categoryId: '',
     address: '',
     latitude: 12.9716,
     longitude: 77.5946,
     photoFile: null,
     photoUrl: null,
   });
+
+  useEffect(() => {
+    const fetchCats = async () => {
+      try {
+        const response = await categoriesService.getCategories();
+        const list = Array.isArray(response) ? response : response?.data || [];
+        setCategories(list);
+        if (list.length > 0) {
+          const queryParamCat = new URLSearchParams(window.location.search).get('category');
+          const matched = list.find(
+            (c) => c.id === queryParamCat || c.key === queryParamCat || c._id === queryParamCat
+          );
+          const selectedId = matched
+            ? matched.id || matched.key || matched._id
+            : list[0].id || list[0].key || list[0]._id;
+          setFormData((prev) => ({ ...prev, categoryId: selectedId }));
+        }
+      } catch (err) {
+        console.error('Failed to load categories from database:', err);
+      }
+    };
+    fetchCats();
+  }, []);
 
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -95,7 +119,7 @@ export const ReportForm = ({ onSuccess = null, className = '' }) => {
       setFormData({
         title: '',
         description: '',
-        categoryId: DEFAULT_CATEGORIES[0].id,
+        categoryId: categories[0] ? (categories[0].id || categories[0].key || categories[0]._id) : '',
         address: '',
         latitude: 12.9716,
         longitude: 77.5946,
@@ -162,11 +186,15 @@ export const ReportForm = ({ onSuccess = null, className = '' }) => {
             onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
             className="w-full px-4 py-2.5 text-sm bg-white border border-[#E9E5F0] rounded-xl text-[#252238] focus:outline-none focus:ring-2 focus:ring-purple-400/40 transition-all"
           >
-            {DEFAULT_CATEGORIES.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.name} — ({cat.department}, SLA: {cat.slaHours}h)
-              </option>
-            ))}
+            {categories.length === 0 && <option value="">Loading categories...</option>}
+            {categories.map((cat) => {
+              const catId = cat.id || cat.key || cat._id;
+              return (
+                <option key={catId} value={catId}>
+                  {cat.name} — ({cat.department || 'Municipal Division'}, SLA: {cat.slaHours || 24}h)
+                </option>
+              );
+            })}
           </select>
         </div>
 

@@ -13,8 +13,20 @@ import {
 import { GlassCard } from '../../components/common/GlassCard';
 import { RoleSelectionCard } from '../../components/auth/RoleSelectionCard';
 
+import { useAuth } from '../../context/AuthContext';
+import { ROLE_CONFIG } from '../../constants/roles';
+
 export const RoleSelectionPage = () => {
+  const { role, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
+
+  // If user is already authenticated, redirect them directly to their role home
+  React.useEffect(() => {
+    if (!loading && isAuthenticated && role && ROLE_CONFIG[role]?.homePath) {
+      navigate(ROLE_CONFIG[role].homePath, { replace: true });
+    }
+  }, [loading, isAuthenticated, role, navigate]);
+
   const [selectedRole, setSelectedRole] = useState('citizen');
 
   const roleList = [

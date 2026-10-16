@@ -11,6 +11,8 @@ export const AuthProvider = ({ children }) => {
 
   // Validate session on mount
   const checkAuth = useCallback(async () => {
+    // Proactively clear obsolete user records from localStorage
+    localStorage.removeItem('civicpulse_user');
     const storedToken = localStorage.getItem('civicpulse_token');
     if (!storedToken) {
       setUser(null);
@@ -20,16 +22,22 @@ export const AuthProvider = ({ children }) => {
 
     try {
       const userData = await authService.getCurrentUser();
-      // Server returned valid user profile
-      setUser(userData?.user || userData);
+      // Guard against race condition: only update user if token has not been replaced during request
+      if (localStorage.getItem('civicpulse_token') === storedToken) {
+        setUser(userData?.user || userData);
+      }
     } catch {
-      // Token is expired, invalid, or server is unavailable
-      localStorage.removeItem('civicpulse_token');
-      localStorage.removeItem('civicpulse_user');
-      setUser(null);
-      setToken(null);
+      // Guard against race condition: only clear session if the failing token is still the stored token
+      if (localStorage.getItem('civicpulse_token') === storedToken) {
+        localStorage.removeItem('civicpulse_token');
+        localStorage.removeItem('civicpulse_user');
+        setUser(null);
+        setToken(null);
+      }
     } finally {
-      setLoading(false);
+      if (localStorage.getItem('civicpulse_token') === storedToken) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -37,8 +45,14 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
 
     // Listen for unauthorized events from API client
-    const handleUnauthorized = () => {
-      logout();
+    const handleUnauthorized = (event) => {
+      const tokenSent = event?.detail?.tokenSent;
+      const currentToken = localStorage.getItem('civicpulse_token');
+
+      // Only invalidate active session if the 401 originated from the currently active token
+      if (!tokenSent || tokenSent === currentToken) {
+        logout();
+      }
     };
     window.addEventListener('civicpulse_unauthorized', handleUnauthorized);
     return () => {
@@ -57,9 +71,9 @@ export const AuthProvider = ({ children }) => {
       throw new Error('Authentication response was invalid or missing security credentials.');
     }
 
-    // Persist verified session
+    // Persist verified session token only (User state lives in React memory sourced from backend)
     localStorage.setItem('civicpulse_token', authToken);
-    localStorage.setItem('civicpulse_user', JSON.stringify(verifiedUser));
+    localStorage.removeItem('civicpulse_user');
 
     setToken(authToken);
     setUser(verifiedUser);
@@ -70,7 +84,7 @@ export const AuthProvider = ({ children }) => {
   const setAuthSession = (authToken, verifiedUser) => {
     if (authToken && verifiedUser) {
       localStorage.setItem('civicpulse_token', authToken);
-      localStorage.setItem('civicpulse_user', JSON.stringify(verifiedUser));
+      localStorage.removeItem('civicpulse_user');
       setToken(authToken);
       setUser(verifiedUser);
     }
@@ -106,7 +120,6 @@ export const AuthProvider = ({ children }) => {
       const data = await authService.getCurrentUser();
       const updated = data?.user || data;
       setUser(updated);
-      localStorage.setItem('civicpulse_user', JSON.stringify(updated));
       return updated;
     } catch (err) {
       console.error('Failed to refresh user profile:', err);
