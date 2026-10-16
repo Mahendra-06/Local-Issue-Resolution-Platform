@@ -177,7 +177,7 @@ export const authService = {
     const user = await User.findOne({ email: normalizedEmail }).select('+passwordHash');
 
     if (!user) {
-      const error = new Error('Invalid email or password.');
+      const error = new Error('No account found with this email address. Please register or verify the email entered.');
       error.statusCode = 401;
       throw error;
     }
@@ -190,7 +190,7 @@ export const authService = {
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      const error = new Error('Invalid email or password.');
+      const error = new Error('Incorrect password. Please verify your password and try again.');
       error.statusCode = 401;
       throw error;
     }
