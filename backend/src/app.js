@@ -25,8 +25,18 @@ app.use(
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps, curl, postman) or matching origin
-      if (!origin || env.CORS_ORIGIN.includes(origin) || env.NODE_ENV === 'development') {
+      // Allow requests with no origin (mobile, curl, postman) or development mode
+      if (!origin || env.NODE_ENV === 'development') {
+        return callback(null, true);
+      }
+
+      const normalizedOrigin = origin.replace(/\/+$/, '');
+      const isAllowed =
+        env.CORS_ORIGIN.includes('*') ||
+        env.CORS_ORIGIN.some((allowed) => allowed.replace(/\/+$/, '') === normalizedOrigin) ||
+        normalizedOrigin.endsWith('.vercel.app');
+
+      if (isAllowed) {
         callback(null, true);
       } else {
         callback(new Error(`Origin ${origin} not allowed by CORS`));
